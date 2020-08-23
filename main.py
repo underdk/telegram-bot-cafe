@@ -7,13 +7,19 @@ import uuid
 import openpyxl
 
 db = mysql.connector.connect(
-    host='localhost',
-    user='root',
-    passwd='undertalefanatic_45',
+    host='eu-cdbr-west-03.cleardb.net',
+    user='ba67d3559da4eb',
+    passwd='50936339',
     port='3306',
-    database='mydatabase'
+    database='heroku_745e09c97ab9640'
 )
-
+#mysql://
+# ba67d3559da4eb
+# :
+# 50936339
+# @
+# eu-cdbr-west-03.cleardb.net
+# /heroku_745e09c97ab9640?reconnect=true
 cursor = db.cursor(buffered=True)
 #cursor.execute('ALTER TABLE orders ADD COLUMN moneychange INT')
 #cursor.execute('UPDATE users SET phone_number = NULL WHERE user_id = 724952483')
