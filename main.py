@@ -2065,8 +2065,8 @@ def menu(call):
             ws.cell(i, 5, users_report[i - 2][4])
             ws.cell(i, 6, users_report[i - 2][5])
             ws.cell(i, 7, order_count)
-        wb.save('c:/users/user/desktop/excel bot/users' + str(datetime.datetime.today().date()) + '.xlsx')
-        f = open('c:/users/user/desktop/excel bot/users' + str(datetime.datetime.today().date()) + '.xlsx', 'rb')
+        wb.save('users' + str(datetime.datetime.today().date()) + '.xlsx')
+        f = open('users' + str(datetime.datetime.today().date()) + '.xlsx', 'rb')
         bot.send_document(call.message.chat.id, f)
 
 
