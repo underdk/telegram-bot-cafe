@@ -1288,7 +1288,6 @@ def menu(call):
         messages = cursor.fetchall()
         for d in range(len(messages)):
             bot.delete_message(call.message.chat.id, messages[d][0])
-        bot.delete_message(call.message.chat.id, messages[0][0] - 1)
         sql2 = 'SELECT link, product, amount, price FROM cart WHERE cart_id = %s'
         val2 = (call.message.chat.id,)
         cursor.execute(sql2, val2)
@@ -1342,11 +1341,11 @@ def menu(call):
             else:
                 order_change.row(back_cartver, remove_option)
                 order_change.row(pay)
-            bot.send_message(parse_mode='Markdown', chat_id=call.message.chat.id,
+            bot.edit_message_text(parse_mode='Markdown', chat_id=call.message.chat.id,
                                   text='[ ](' + str((fetch[val_])[0]) + ')' +
                                                                            str((fetch[val_])[1]) + ' - ' + str(
                     (fetch[val_])[2]) + ' шт.' + '\nСтоймость - ' + str(
-                    (fetch[val_])[3]) + 'тг.', reply_markup=order_change)
+                    (fetch[val_])[3]) + 'тг.', reply_markup=order_change, message_id=call.message.message_id)
     if call.data == 'cart':      #Если была выбрана корзина...
         sql2 = 'SELECT link, product, amount, price FROM cart WHERE cart_id = %s'
         val2 = (call.message.chat.id, )
