@@ -4,6 +4,8 @@ from telebot import types
 from datetime import datetime
 import uuid
 import openpyxl
+import sys
+
 db = mysql.connector.connect(
     host='localhost',
     user='root',
@@ -17,10 +19,6 @@ directory = 'c:/users/user/desktop/'
 bot = telebot.TeleBot('1133046539:AAGD-vuFM-29tJ9ovDGvtj7_dLLAUqSmXo8')
 test = '1000002'
 pepperoni = 'https://imbt.ga/2y2Q0RkacL'
-cursor.execute('SELECT phone_number FROM users WHERE user_id = 724952483')
-
-
-
 
 
 @bot.message_handler(commands=['help', 'start'])
@@ -33,15 +31,21 @@ def send_welcome(message):
 
     test = types.InlineKeyboardButton(text='test button', callback_data='yolo too?')
     contact.row(test)
-    bot.send_message(text='Чтобы продолжить вы должны отправить нам ваши контактные данные для дальнейших услуг',
-                          chat_id=message.chat.id, reply_markup=contact)
+    bot.send_message(text='<a href="' + pepperoni + '"> </a><b>Чтобы продолжить вы должны отправить нам ваши контактные данные для дальнейших услуг</b>',
+                     chat_id=message.chat.id, parse_mode='HTML', reply_markup=contact)
 
 
 @bot.message_handler(content_types=['text', 'photo'])
 def testthingy(message):
-    if message.text.startswith('a'):
-        bot.send_message(message.chat.id, message.text)
-        print(message.text)
+    if message.photo:
+        info = bot.get_file(message.photo[0].file_id)
+        print(info)
+        file = bot.download_file(info.file_path)
+        print(file)
+        with open('somethoing.jpg', 'wb') as new_file:
+            new_file.write(file)
+
+
 @bot.callback_query_handler(func=lambda call: True)
 def sthnewidk(call):
     if call.data.isdigit():
