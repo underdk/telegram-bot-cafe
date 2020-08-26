@@ -1136,6 +1136,7 @@ def menu(call):
             food_type.row(back)
             bot.edit_message_text('Выберите один из разделов', call.message.chat.id, call.message.message_id, reply_markup=food_type)
         else:
+            bot.delete_message(call.message.chat.id, call.message.message_id - len(messages))
             for d in range(len(messages)):
                 bot.delete_message(call.message.chat.id, messages[d][0])
             for i in range(len(category)):
@@ -1143,7 +1144,7 @@ def menu(call):
                 food_type.add(button)
             back = types.InlineKeyboardButton('Назад \u2b05', callback_data='back')
             food_type.row(back)
-            bot.edit_message_text('Выберите один из разделов', call.message.chat.id, call.message.message_id - len(messages),
+            bot.send_message(text='Выберите один из разделов', chat_id=call.message.chat.id,
                                   reply_markup=food_type)
         sql = 'DELETE FROM messages WHERE user_id = %s'
         val = (call.message.chat.id,)
