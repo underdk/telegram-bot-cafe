@@ -8,7 +8,7 @@ Group=testuser
 
 WorkingDirectory=/home/testuser/telegram-bot-cafe/
 Environment="PYTHONPATH=/home/testuser/telegram-bot-cafe/"
-ExecStart=/home/testuser/telegram-bot-cafe/.venv/bin/python /home/testuser/telegram-cafe-bot/main.py
+ExecStart=/home/testuser/telegram-bot-cafe/.venv/bin/python /home/testuser/telegram-bot-cafe/main.py
 
 [Install]
 WantedBy=multi-user.target
