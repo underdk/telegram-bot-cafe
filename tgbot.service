@@ -3,12 +3,12 @@ Description=Telegram Bot
 After=network.target
 
 [Service]
-User=testuser
-Group=testuser
+User=test
+Group=test
 
 WorkingDirectory=/home/testuser/telegram-bot-cafe/
 Environment="PYTHONPATH=/home/testuser/telegram-bot-cafe/"
-ExecStart=/home/testuser/telegram-bot-cafe/.venv/bin/python /home/testuser/telegram-bot-cafe/main.py
+ExecStart=/home/test/telegram-bot-cafe/.venv/bin/python /home/test/telegram-bot-cafe/main.py
 
 [Install]
 WantedBy=multi-user.target
