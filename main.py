@@ -39,6 +39,7 @@ cursor = db.cursor(buffered=True)
 #cursor.execute('INSERT INTO cart (product, amount, price, cart_id, link) VALUES ("test1", 1, 15, 724952483, "https://imbt.ga/11jPFqNhjr")')
 #cursor.execute('INSERT INTO cart (product, amount, price, cart_id, link) VALUES ("test2", 4, 20, 724952483, "https://imbt.ga/11jPFqNhjr")')
 #cursor.execute('INSERT INTO cart (product, amount, price, cart_id, link) VALUES ("test3", 3, 15, 724952483, "https://imbt.ga/11jPFqNhjr")')
+cursor.execute('UPDATE productlist SET process = "saved"')
 db.commit()
 def query(self, sql, use_dict=True, retry=0):
     if retry < 0:
@@ -520,6 +521,315 @@ def order_process(message):
                                      1] + '\nЦена: ' + str(product[2]) + '\nКатегория: ' + product[
                                      3] + '\nВидимость: ' + product[4] + '\nФото: ' + product[5],
                                  parse_mode='HTML', reply_markup=adding_prod)
+        elif step_fetch[0] == 'eedit_name':
+            bot.delete_message(message.chat.id, message.message_id - 1)
+            sql = 'UPDATE productlist SET product = %s WHERE user_id = %s AND process = %s'
+            val = (message.text, message.chat.id, 'editing')
+            cursor.execute(sql, val)
+            db.commit()
+            sql = 'SELECT product, price, desc_, type, seen, link FROM productlist WHERE user_id = %s AND process = %s'
+            val = (message.chat.id, 'editing')
+            cursor.execute(sql, val)
+            productt = cursor.fetchone()
+            sql = 'SELECT product, price, desc_, link, seen, type FROM productlist WHERE type = %s AND process NOT IN (%s)'
+            val = (productt[3], 'making')
+            cursor.execute(sql, val)
+            product = cursor.fetchall()
+            message_id = message.message_id + 2
+            bot.send_message(text='Категория - ' + productt[3], chat_id=message.chat.id)
+            for i in range(len(product)):
+                food_type = types.InlineKeyboardMarkup(2)
+                button = types.InlineKeyboardButton('Редактировать\ud83d\udd27', callback_data='edit_prod' + str(i))
+                food_type.add(button)
+                sql = 'INSERT INTO messages (user_id, message) VALUES (%s, %s)'
+                val = (message.chat.id, message_id + i)
+                cursor.execute(sql, val)
+                db.commit()
+                if product[i][0] == productt[0]:
+                    sql = 'UPDATE calldata SET message = %s WHERE user_id = %s'
+                    val = (message_id + i, message.chat.id)
+                    cursor.execute(sql, val)
+                    adding_prod = types.InlineKeyboardMarkup(2)
+                    preview = types.InlineKeyboardButton('Предпросмотр', callback_data='preview_prod' + product[i][0])
+                    edit_name = types.InlineKeyboardButton('Ред. имя', callback_data='eedit_name' + product[i][0])
+                    edit_photo = types.InlineKeyboardButton('Ред. фото', callback_data='eedit_photo' + product[i][0])
+                    edit_desc = types.InlineKeyboardButton('Ред. описание', callback_data='eedit_desc' + product[i][0])
+                    edit_price = types.InlineKeyboardButton('Ред. цену', callback_data='eedit_price' + product[i][0])
+                    edit_cate = types.InlineKeyboardButton('Ред. категорию', callback_data='eedit_cate' + product[i][0])
+                    show = types.InlineKeyboardButton('Показать\u2705', callback_data='eshow' + product[i][0])
+                    hide = types.InlineKeyboardButton('Скрыть\u26d4', callback_data='ehide' + product[i][0])
+                    delete = types.InlineKeyboardButton('Удалить продукт\u274c',
+                                                        callback_data='edelete_prod' + product[i][0])
+                    adding_prod.add(delete, preview)
+                    if product[i][4] == '<b>ДА</b>':
+                        adding_prod.add(edit_name, edit_photo, edit_desc, edit_cate, edit_price, hide)
+                    else:
+                        adding_prod.add(edit_name, edit_photo, edit_desc, edit_cate, edit_price, show)
+                    if i == len(product) - 1:
+                        cancel = types.InlineKeyboardButton('Назад \u2b05', callback_data='among_cates1')
+                        adding_prod.row(cancel)
+                    bot.send_message(chat_id=message.chat.id,
+                                     text='Имя продукта отредактировано!\n<b>Информация о продукте</b>\n\nИмя: ' + product[
+                                         i][0] + '\nОписание: \n' + product[
+                                              i][2] + '\nЦена: ' + str(product[i][1]) + '\nКатегория: ' + product[
+                                              i][5] + '\nВидимость: ' +
+                                          product[i][4] + '\nФото: ' + product[i][3], parse_mode='HTML',
+                                     reply_markup=adding_prod)
+                    sql = 'UPDATE calldata SET message = %s WHERE user_id = %s'
+                    val = (message_id + i, message.chat.id)
+                    cursor.execute(sql, val)
+                    db.commit()
+                    continue
+                if i == len(product) - 1:
+                    cancel = types.InlineKeyboardButton('Назад \u2b05', callback_data='among_cates1')
+                    food_type.add(cancel)
+                if product[i][3] != 'не указано':
+                    bot.send_message(
+                        text='<a href="' + product[i][3] + '"> </a>' + product[i][0] + ' - ' + str(
+                            product[i][1]) + 'тг.\n' + product[i][2] + '\nВидно: ' + product[i][4],
+                        chat_id=message.chat.id, parse_mode='HTML', reply_markup=food_type)
+                else:
+                    bot.send_message(
+                        text=product[i][0] + ' - ' + str(product[i][1]) + 'тг.\n' + product[i][
+                            2] + '\nОТСУТСТВУЕТ ФОТОГРАФИЯ\nВидно: ' + product[i][4],
+                        chat_id=message.chat.id, parse_mode='HTML', reply_markup=food_type)
+        elif step_fetch[0] == 'eedit_photo':
+            bot.delete_message(message.chat.id, message.message_id - 1)
+            sql = 'UPDATE productlist SET link = %s WHERE user_id = %s AND process = %s'
+            val = (message.text, message.chat.id, 'editing')
+            cursor.execute(sql, val)
+            db.commit()
+            sql = 'SELECT product, price, desc_, type, seen, link FROM productlist WHERE user_id = %s AND process = %s'
+            val = (message.chat.id, 'editing')
+            cursor.execute(sql, val)
+            productt = cursor.fetchone()
+            sql = 'SELECT product, price, desc_, link, seen, type FROM productlist WHERE type = %s AND process NOT IN (%s)'
+            val = (productt[3], 'making')
+            cursor.execute(sql, val)
+            product = cursor.fetchall()
+            message_id = message.message_id + 2
+            bot.send_message(text='Категория - ' + productt[3], chat_id=message.chat.id)
+            for i in range(len(product)):
+                food_type = types.InlineKeyboardMarkup(2)
+                button = types.InlineKeyboardButton('Редактировать\ud83d\udd27', callback_data='edit_prod' + str(i))
+                food_type.add(button)
+                sql = 'INSERT INTO messages (user_id, message) VALUES (%s, %s)'
+                val = (message.chat.id, message_id + i)
+                cursor.execute(sql, val)
+                db.commit()
+                if product[i][0] == productt[0]:
+                    sql = 'UPDATE calldata SET message = %s WHERE user_id = %s'
+                    val = (message_id + i, message.chat.id)
+                    cursor.execute(sql, val)
+                    adding_prod = types.InlineKeyboardMarkup(2)
+                    preview = types.InlineKeyboardButton('Предпросмотр', callback_data='preview_prod' + product[i][0])
+                    edit_name = types.InlineKeyboardButton('Ред. имя', callback_data='eedit_name' + product[i][0])
+                    edit_photo = types.InlineKeyboardButton('Ред. фото', callback_data='eedit_photo' + product[i][0])
+                    edit_desc = types.InlineKeyboardButton('Ред. описание', callback_data='eedit_desc' + product[i][0])
+                    edit_price = types.InlineKeyboardButton('Ред. цену', callback_data='eedit_price' + product[i][0])
+                    edit_cate = types.InlineKeyboardButton('Ред. категорию', callback_data='eedit_cate' + product[i][0])
+                    show = types.InlineKeyboardButton('Показать\u2705', callback_data='eshow' + product[i][0])
+                    hide = types.InlineKeyboardButton('Скрыть\u26d4', callback_data='ehide' + product[i][0])
+                    delete = types.InlineKeyboardButton('Удалить продукт\u274c',
+                                                        callback_data='edelete_prod' + product[i][0])
+                    adding_prod.add(delete, preview)
+                    if product[i][4] == '<b>ДА</b>':
+                        adding_prod.add(edit_name, edit_photo, edit_desc, edit_cate, edit_price, hide)
+                    else:
+                        adding_prod.add(edit_name, edit_photo, edit_desc, edit_cate, edit_price, show)
+                    if i == len(product) - 1:
+                        cancel = types.InlineKeyboardButton('Назад \u2b05', callback_data='among_cates1')
+                        adding_prod.row(cancel)
+                    bot.send_message(chat_id=message.chat.id,
+                                     text='Фото продукта отредактировано!\n<b>Информация о продукте</b>\n\nИмя: ' +
+                                          product[
+                                              i][0] + '\nОписание: \n' + product[
+                                              i][2] + '\nЦена: ' + str(product[i][1]) + '\nКатегория: ' + product[
+                                              i][5] + '\nВидимость: ' +
+                                          product[i][4] + '\nФото: ' + product[i][3], parse_mode='HTML',
+                                     reply_markup=adding_prod)
+                    sql = 'UPDATE calldata SET message = %s WHERE user_id = %s'
+                    val = (message_id + i, message.chat.id)
+                    cursor.execute(sql, val)
+                    db.commit()
+                    continue
+                if i == len(product) - 1:
+                    cancel = types.InlineKeyboardButton('Назад \u2b05', callback_data='among_cates1')
+                    food_type.add(cancel)
+                if product[i][3] != 'не указано':
+                    bot.send_message(
+                        text='<a href="' + product[i][3] + '"> </a>' + product[i][0] + ' - ' + str(
+                            product[i][1]) + 'тг.\n' + product[i][2] + '\nВидно: ' + product[i][4],
+                        chat_id=message.chat.id, parse_mode='HTML', reply_markup=food_type)
+                else:
+                    bot.send_message(
+                        text=product[i][0] + ' - ' + str(product[i][1]) + 'тг.\n' + product[i][
+                            2] + '\nОТСУТСТВУЕТ ФОТОГРАФИЯ\nВидно: ' + product[i][4],
+                        chat_id=message.chat.id, parse_mode='HTML', reply_markup=food_type)
+        elif step_fetch[0] == 'eedit_desc':
+            bot.delete_message(message.chat.id, message.message_id - 1)
+            sql = 'UPDATE productlist SET desc_ = %s WHERE user_id = %s AND process = %s'
+            val = (message.text, message.chat.id, 'editing')
+            cursor.execute(sql, val)
+            db.commit()
+            sql = 'SELECT product, price, desc_, type, seen, link FROM productlist WHERE user_id = %s AND process = %s'
+            val = (message.chat.id, 'editing')
+            cursor.execute(sql, val)
+            productt = cursor.fetchone()
+            sql = 'SELECT product, price, desc_, link, seen, type FROM productlist WHERE type = %s AND process NOT IN (%s)'
+            val = (productt[3], 'making')
+            cursor.execute(sql, val)
+            product = cursor.fetchall()
+            message_id = message.message_id + 2
+            bot.send_message(text='Категория - ' + productt[3], chat_id=message.chat.id)
+            for i in range(len(product)):
+                food_type = types.InlineKeyboardMarkup(2)
+                button = types.InlineKeyboardButton('Редактировать\ud83d\udd27', callback_data='edit_prod' + str(i))
+                food_type.add(button)
+                sql = 'INSERT INTO messages (user_id, message) VALUES (%s, %s)'
+                val = (message.chat.id, message_id + i)
+                cursor.execute(sql, val)
+                db.commit()
+                if product[i][0] == productt[0]:
+                    sql = 'UPDATE calldata SET message = %s WHERE user_id = %s'
+                    val = (message_id + i, message.chat.id)
+                    cursor.execute(sql, val)
+                    adding_prod = types.InlineKeyboardMarkup(2)
+                    preview = types.InlineKeyboardButton('Предпросмотр', callback_data='preview_prod' + product[i][0])
+                    edit_name = types.InlineKeyboardButton('Ред. имя', callback_data='eedit_name' + product[i][0])
+                    edit_photo = types.InlineKeyboardButton('Ред. фото', callback_data='eedit_photo' + product[i][0])
+                    edit_desc = types.InlineKeyboardButton('Ред. описание', callback_data='eedit_desc' + product[i][0])
+                    edit_price = types.InlineKeyboardButton('Ред. цену', callback_data='eedit_price' + product[i][0])
+                    edit_cate = types.InlineKeyboardButton('Ред. категорию', callback_data='eedit_cate' + product[i][0])
+                    show = types.InlineKeyboardButton('Показать\u2705', callback_data='eshow' + product[i][0])
+                    hide = types.InlineKeyboardButton('Скрыть\u26d4', callback_data='ehide' + product[i][0])
+                    delete = types.InlineKeyboardButton('Удалить продукт\u274c',
+                                                        callback_data='edelete_prod' + product[i][0])
+                    adding_prod.add(delete, preview)
+                    if product[i][4] == '<b>ДА</b>':
+                        adding_prod.add(edit_name, edit_photo, edit_desc, edit_cate, edit_price, hide)
+                    else:
+                        adding_prod.add(edit_name, edit_photo, edit_desc, edit_cate, edit_price, show)
+                    if i == len(product) - 1:
+                        cancel = types.InlineKeyboardButton('Назад \u2b05', callback_data='among_cates1')
+                        adding_prod.row(cancel)
+                    bot.send_message(chat_id=message.chat.id,
+                                     text='Описание продукта отредактировано!\n<b>Информация о продукте</b>\n\nИмя: ' +
+                                          product[
+                                              i][0] + '\nОписание: \n' + product[
+                                              i][2] + '\nЦена: ' + str(product[i][1]) + '\nКатегория: ' + product[
+                                              i][5] + '\nВидимость: ' +
+                                          product[i][4] + '\nФото: ' + product[i][3], parse_mode='HTML',
+                                     reply_markup=adding_prod)
+                    sql = 'UPDATE calldata SET message = %s WHERE user_id = %s'
+                    val = (message_id + i, message.chat.id)
+                    cursor.execute(sql, val)
+                    db.commit()
+                    continue
+                if i == len(product) - 1:
+                    cancel = types.InlineKeyboardButton('Назад \u2b05', callback_data='among_cates1')
+                    food_type.add(cancel)
+                if product[i][3] != 'не указано':
+                    bot.send_message(
+                        text='<a href="' + product[i][3] + '"> </a>' + product[i][0] + ' - ' + str(
+                            product[i][1]) + 'тг.\n' + product[i][2] + '\nВидно: ' + product[i][4],
+                        chat_id=message.chat.id, parse_mode='HTML', reply_markup=food_type)
+                else:
+                    bot.send_message(
+                        text=product[i][0] + ' - ' + str(product[i][1]) + 'тг.\n' + product[i][
+                            2] + '\nОТСУТСТВУЕТ ФОТОГРАФИЯ\nВидно: ' + product[i][4],
+                        chat_id=message.chat.id, parse_mode='HTML', reply_markup=food_type)
+        elif step_fetch[0] == 'eedit_price':
+            if message.text.isdigit():
+                bot.delete_message(message.chat.id, message.message_id - 1)
+                sql = 'UPDATE productlist SET desc_ = %s WHERE user_id = %s AND process = %s'
+                val = (message.text, message.chat.id, 'editing')
+                cursor.execute(sql, val)
+                db.commit()
+                sql = 'SELECT product, price, desc_, type, seen, link FROM productlist WHERE user_id = %s AND process = %s'
+                val = (message.chat.id, 'editing')
+                cursor.execute(sql, val)
+                productt = cursor.fetchone()
+                sql = 'SELECT product, price, desc_, link, seen, type FROM productlist WHERE type = %s AND process NOT IN (%s)'
+                val = (productt[3], 'making')
+                cursor.execute(sql, val)
+                product = cursor.fetchall()
+                message_id = message.message_id + 2
+                bot.send_message(text='Категория - ' + productt[3], chat_id=message.chat.id)
+                for i in range(len(product)):
+                    food_type = types.InlineKeyboardMarkup(2)
+                    button = types.InlineKeyboardButton('Редактировать\ud83d\udd27', callback_data='edit_prod' + str(i))
+                    food_type.add(button)
+                    sql = 'INSERT INTO messages (user_id, message) VALUES (%s, %s)'
+                    val = (message.chat.id, message_id + i)
+                    cursor.execute(sql, val)
+                    db.commit()
+                    if product[i][0] == productt[0]:
+                        sql = 'UPDATE calldata SET message = %s WHERE user_id = %s'
+                        val = (message_id + i, message.chat.id)
+                        cursor.execute(sql, val)
+                        adding_prod = types.InlineKeyboardMarkup(2)
+                        preview = types.InlineKeyboardButton('Предпросмотр',
+                                                             callback_data='preview_prod' + product[i][0])
+                        edit_name = types.InlineKeyboardButton('Ред. имя', callback_data='eedit_name' + product[i][0])
+                        edit_photo = types.InlineKeyboardButton('Ред. фото',
+                                                                callback_data='eedit_photo' + product[i][0])
+                        edit_desc = types.InlineKeyboardButton('Ред. описание',
+                                                               callback_data='eedit_desc' + product[i][0])
+                        edit_price = types.InlineKeyboardButton('Ред. цену',
+                                                                callback_data='eedit_price' + product[i][0])
+                        edit_cate = types.InlineKeyboardButton('Ред. категорию',
+                                                               callback_data='eedit_cate' + product[i][0])
+                        show = types.InlineKeyboardButton('Показать\u2705', callback_data='eshow' + product[i][0])
+                        hide = types.InlineKeyboardButton('Скрыть\u26d4', callback_data='ehide' + product[i][0])
+                        delete = types.InlineKeyboardButton('Удалить продукт\u274c',
+                                                            callback_data='edelete_prod' + product[i][0])
+                        adding_prod.add(delete, preview)
+                        if product[i][4] == '<b>ДА</b>':
+                            adding_prod.add(edit_name, edit_photo, edit_desc, edit_cate, edit_price, hide)
+                        else:
+                            adding_prod.add(edit_name, edit_photo, edit_desc, edit_cate, edit_price, show)
+                        if i == len(product) - 1:
+                            cancel = types.InlineKeyboardButton('Назад \u2b05', callback_data='among_cates1')
+                            adding_prod.row(cancel)
+                        bot.send_message(chat_id=message.chat.id,
+                                         text='Описание продукта отредактировано!\n<b>Информация о продукте</b>\n\nИмя: ' +
+                                              product[
+                                                  i][0] + '\nОписание: \n' + product[
+                                                  i][2] + '\nЦена: ' + str(product[i][1]) + '\nКатегория: ' + product[
+                                                  i][5] + '\nВидимость: ' +
+                                              product[i][4] + '\nФото: ' + product[i][3], parse_mode='HTML',
+                                         reply_markup=adding_prod)
+                        sql = 'UPDATE calldata SET message = %s WHERE user_id = %s'
+                        val = (message_id + i, message.chat.id)
+                        cursor.execute(sql, val)
+                        db.commit()
+                        continue
+                    if i == len(product) - 1:
+                        cancel = types.InlineKeyboardButton('Назад \u2b05', callback_data='among_cates1')
+                        food_type.add(cancel)
+                    if product[i][3] != 'не указано':
+                        bot.send_message(
+                            text='<a href="' + product[i][3] + '"> </a>' + product[i][0] + ' - ' + str(
+                                product[i][1]) + 'тг.\n' + product[i][2] + '\nВидно: ' + product[i][4],
+                            chat_id=message.chat.id, parse_mode='HTML', reply_markup=food_type)
+                    else:
+                        bot.send_message(
+                            text=product[i][0] + ' - ' + str(product[i][1]) + 'тг.\n' + product[i][
+                                2] + '\nОТСУТСТВУЕТ ФОТОГРАФИЯ\nВидно: ' + product[i][4],
+                            chat_id=message.chat.id, parse_mode='HTML', reply_markup=food_type)
+            else:
+                sql = 'SELECT product, price, desc_, type, seen, link FROM productlist WHERE user_id = %s AND process = %s'
+                val = (message.chat.id, 'editing')
+                cursor.execute(sql, val)
+                product = cursor.fetchone()
+                bot.delete_message(message.chat.id, message.message_id - 1)
+                cancel = types.InlineKeyboardButton('Отмена\u274c', callback_data='stop_edit' + product[0])
+                food_type = types.InlineKeyboardMarkup()
+                food_type.add(cancel)
+                bot.send_message(text='Неправильно указана цена, вводить только цифрами', chat_id=message.chat.id,
+                                 reply_markup=food_type)
+
     if message.contact:
         sel_del = 'SELECT step FROM users WHERE user_id = %s'
         sel_delval = (message.chat.id,)
@@ -2500,19 +2810,19 @@ def menu(call):
         cursor.execute(sql)
         category = cursor.fetchall()
         for i in range(len(category)):
-            button = types.InlineKeyboardButton(category[i][0], callback_data='cate' + str(i))
+            button = types.InlineKeyboardButton(category[i][0], callback_data='catess' + str(i))
             food_type.add(button)
         cancel = types.InlineKeyboardButton('Отмена\u274c', callback_data='cancel_all')
         food_type.add(cancel)
         bot.edit_message_text(text='Выберите категорию в которой будет находиться продукт', chat_id=call.message.chat.id,
                               message_id=call.message.message_id, reply_markup=food_type)
-    if call.data.startswith('cate'):
+    if call.data.startswith('catess'):
         bot.edit_message_text('Категория продукта отредактирована!', call.message.chat.id, call.message.message_id)
         sql = 'SELECT name FROM categorylist'
         cursor.execute(sql)
         category = cursor.fetchall()
         sql = 'UPDATE productlist SET type = %s WHERE user_id = %s AND process = %s'
-        val = (category[int(call.data[4:])][0], call.message.chat.id, 'making')
+        val = (category[int(call.data[6:])][0], call.message.chat.id, 'making')
         cursor.execute(sql, val)
         db.commit()
         sql = 'SELECT product, desc_, price, type, seen, link FROM productlist WHERE user_id = %s AND process = %s'
@@ -2703,12 +3013,16 @@ def menu(call):
         food_type.add(cancel)
         bot.edit_message_text('Выберите категорию:', call.message.chat.id, call.message.message_id, reply_markup=food_type)
     if call.data.startswith('_choose'):
+        sql = 'DELETE FROM messages WHERE user_id = %s'
+        val = (call.message.chat.id, )
+        cursor.execute(sql, val)
+        db.commit()
         sql = 'SELECT name FROM categorylist'
         cursor.execute(sql)
         category = cursor.fetchall()
         ind = int(call.data[7:])
-        sql = 'SELECT product, price, desc_, link, seen FROM productlist WHERE type = %s AND process = %s'
-        val = (category[ind][0], 'saved')
+        sql = 'SELECT product, price, desc_, link, seen FROM productlist WHERE type = %s AND process NOT IN (%s, %s)'
+        val = (category[ind][0], 'making', 'editing')
         cursor.execute(sql, val)
         product = cursor.fetchall()
         if cursor.rowcount == 0:
@@ -2729,7 +3043,8 @@ def menu(call):
             val = (ind, call.message.chat.id)
             cursor.execute(sql, val)
             db.commit()
-            cursor.execute('DELETE FROM messages')
+            cursor.execute('DELETE FROM messages WHERE user_id = %s', (call.message.chat.id, ))
+            db.commit()
             bot.edit_message_text(text='Категория - ' + category[ind][0], chat_id=call.message.chat.id,
                                   message_id=call.message.message_id)
             for i in range(len(product)):
@@ -2753,6 +3068,10 @@ def menu(call):
                         chat_id=call.message.chat.id, parse_mode='HTML', reply_markup=food_type)
 
     if call.data.startswith('edit_prod'):
+        sql = 'SELECT message FROM messages WHERE user_id = %s'
+        val = (call.message.chat.id, )
+        cursor.execute(sql, val)
+        messages = cursor.fetchall()
         call_check1 = 'SELECT calldata FROM calldata WHERE user_id = %s'
         call_check2 = (call.message.chat.id,)
         cursor.execute(call_check1, call_check2)
@@ -2767,18 +3086,14 @@ def menu(call):
         cursor.execute(call_check1, call_check2)
         call_fetch = cursor.fetchone()
         calldataa = call_fetch[0]
+        call_check1 = 'SELECT calldata2 FROM calldata WHERE user_id = %s'
+        call_check2 = (call.message.chat.id,)
+        cursor.execute(call_check1, call_check2)
+        call_fetch = cursor.fetchone()
+        category_call = call_fetch[0]
         sql = 'SELECT name FROM categorylist'
         cursor.execute(sql)
         category = cursor.fetchall()
-        sql1 = 'SELECT product FROM cart WHERE cart_id = %s'
-        val1 = (call.message.chat.id,)
-        cursor.execute(sql1, val1)
-        fetchcheck = cursor.fetchall()
-        sql = 'SELECT calldata2 FROM calldata WHERE user_id = %s'
-        val = (call.message.chat.id,)
-        cursor.execute(sql, val)
-        category_call = cursor.fetchone()
-        ind = category_call[0]
         sql = 'SELECT message FROM calldata WHERE user_id = %s'
         val = (call.message.chat.id,)
         cursor.execute(sql, val)
@@ -2787,51 +3102,51 @@ def menu(call):
         val = (call.message.message_id, call.message.chat.id)
         cursor.execute(sql, val)
         db.commit()
-        sql = 'SELECT message FROM messages WHERE user_id = %s'
-        val = (call.message.chat.id,)
-        cursor.execute(sql, val)
-        messages = cursor.fetchall()
         call_check1 = 'SELECT calldata FROM calldata WHERE user_id = %s'
         call_check2 = (call.message.chat.id,)
         cursor.execute(call_check1, call_check2)
         call_fetch = cursor.fetchone()
         calldataa = call_fetch[0]
         sql = 'SELECT product, desc_, price, type, seen, link FROM productlist WHERE type = %s AND process NOT IN (%s)'
-        val = (category[ind][0], 'making')
+        val = (category[category_call][0], 'making')
         cursor.execute(sql, val)
-        product = cursor.fetchall()
-        print(product, calldataa)
+        product1 = cursor.fetchall()
+        print(product1, calldataa)
         sql = 'UPDATE productlist SET process = %s, user_id = %s WHERE product = %s'
-        val = ('editing', call.message.chat.id, product[calldataa][0])
+        val = ('editing', call.message.chat.id, product1[calldataa][0])
         cursor.execute(sql, val)
         db.commit()
-        sql = 'SELECT product, desc_, price, type, seen, link FROM productlist WHERE user_id = %s AND process = %s'
-        val = (call.message.chat.id, 'editing')
+        sql = 'SELECT product, desc_, price, type, seen, link FROM productlist WHERE product = %s'
+        val = (product1[calldataa][0],)
         cursor.execute(sql, val)
         product = cursor.fetchone()
-        print(product)
         adding_prod = types.InlineKeyboardMarkup(2)
-        preview = types.InlineKeyboardButton('Предпросмотр', callback_data='preview_prod')
-        edit_name = types.InlineKeyboardButton('Ред. имя', callback_data='edit_name')
-        edit_photo = types.InlineKeyboardButton('Ред. фото', callback_data='edit_photo')
-        edit_desc = types.InlineKeyboardButton('Ред. описание', callback_data='edit_desc')
-        edit_price = types.InlineKeyboardButton('Ред. цену', callback_data='edit_price')
-        edit_cate = types.InlineKeyboardButton('Ред. категорию', callback_data='edit_cate')
-        show = types.InlineKeyboardButton('Показать\u2705', callback_data='show' + product[0])
-        hide = types.InlineKeyboardButton('Скрыть\u26d4', callback_data='hide' + product[0])
-        delete = types.InlineKeyboardButton('Удалить продукт\u274c', callback_data='delete_prod')
+        preview = types.InlineKeyboardButton('Предпросмотр', callback_data='preview_prod' + product[0])
+        edit_name = types.InlineKeyboardButton('Ред. имя', callback_data='eedit_name' + product[0])
+        edit_photo = types.InlineKeyboardButton('Ред. фото', callback_data='eedit_photo' + product[0])
+        edit_desc = types.InlineKeyboardButton('Ред. описание', callback_data='eedit_desc' + product[0])
+        edit_price = types.InlineKeyboardButton('Ред. цену', callback_data='eedit_price' + product[0])
+        edit_cate = types.InlineKeyboardButton('Ред. категорию', callback_data='eedit_cate' + product[0])
+        show = types.InlineKeyboardButton('Показать\u2705', callback_data='eshow' + product[0])
+        hide = types.InlineKeyboardButton('Скрыть\u26d4', callback_data='ehide' + product[0])
+        delete = types.InlineKeyboardButton('Удалить продукт\u274c', callback_data='edelete_prod' + product[0])
         adding_prod.add(delete, preview)
         if product[4] == '<b>ДА</b>':
             adding_prod.add(edit_name, edit_photo, edit_desc, edit_cate, edit_price, hide)
         else:
             adding_prod.add(edit_name, edit_photo, edit_desc, edit_cate, edit_price, show)
         if message[0] != None:
-            order_markup = types.InlineKeyboardMarkup(1)
-            sql = 'SELECT message FROM messages WHERE user_id = %s'
-            val = (call.message.chat.id,)
+            print(calldata)
+            sql = 'SELECT product, desc_, price, type, seen, link FROM productlist WHERE product = %s'
+            val = (product1[calldata][0],)
             cursor.execute(sql, val)
-            messages = cursor.fetchall()
-            button = types.InlineKeyboardButton('Редактировать\ud83d\udd27', callback_data='edit_prod' + str())
+            productt = cursor.fetchone()
+            sql = 'UPDATE productlist SET process = %s WHERE process = %s AND product = %s AND user_id = %s'
+            val = ('saved', 'editing', productt[0], call.message.chat.id)
+            cursor.execute(sql, val)
+            db.commit()
+            order_markup = types.InlineKeyboardMarkup(1)
+            button = types.InlineKeyboardButton('Редактировать\ud83d\udd27', callback_data='edit_prod' + str(calldata))
             order_markup.add(button)
             if calldataa == len(messages) - 1:
                 cancel = types.InlineKeyboardButton('Назад \u2b05', callback_data='among_cates1')
@@ -2841,13 +3156,13 @@ def menu(call):
                 order_markup.row(cancel)
             if product[3] != 'не указано':
                 bot.edit_message_text(
-                    text='<a href="' + product[5] + '"> </a>' + product[0] + ' - ' + str(
-                        product[2]) + 'тг.\n' + product[1] + '\nВидно: ' + product[4],
+                    text='<a href="' + productt[5] + '"> </a>' + productt[0] + ' - ' + str(
+                        productt[2]) + 'тг.\n' + productt[1] + '\nВидно: ' + productt[4],
                     chat_id=call.message.chat.id, parse_mode='HTML', message_id=message[0], reply_markup=order_markup)
             else:
                 bot.edit_message_text(
-                    text='<a href="' + product[5] + '"> </a>' + product[0] + ' - ' + str(
-                        product[2]) + 'тг.\n' + product[1] + '\nВидно: ' + product[4],
+                    text='<a href="' + productt[5] + '"> </a>' + productt[0] + ' - ' + str(
+                        productt[2]) + 'тг.\n' + productt[1] + '\nВидно: ' + productt[4],
                     chat_id=call.message.chat.id, parse_mode='HTML', message_id=message[0], reply_markup=order_markup)
         else:
             if calldataa == len(messages) - 1:
@@ -2861,41 +3176,349 @@ def menu(call):
                                    product[4] + '\nФото: ' + product[5], parse_mode='HTML',
                               message_id=call.message.message_id,
                               reply_markup=adding_prod)
-    if call.data == 'among_cates1':
+    if call.data.startswith('eedit_name'):
+        sql = 'UPDATE users SET step = %s WHERE user_id = %s'
+        val = ('eedit_name', call.message.chat.id)
+        cursor.execute(sql, val)
+        db.commit()
+        sql = 'SELECT product, desc_, price, type, seen, link FROM productlist WHERE process = %s AND user_id = %s'
+        val = ('editing', call.message.chat.id)
+        cursor.execute(sql, val)
+        product = cursor.fetchone()
         sql = 'SELECT message FROM messages WHERE user_id = %s'
         val = (call.message.chat.id, )
         cursor.execute(sql, val)
         messages = cursor.fetchall()
         food_type = types.InlineKeyboardMarkup(2)
-        if messages == None:
+        bot.delete_message(call.message.chat.id, messages[0][0] - 1)
+        for i in range(len(messages)):
+            bot.delete_message(call.message.chat.id, messages[i][0])
+        cancel = types.InlineKeyboardButton('Отмена\u274c', callback_data='stop_edit' + product[0])
+        food_type.add(cancel)
+        bot.send_message(text='Введите новое имя к продукту ' + product[0] + ':', chat_id=call.message.chat.id, reply_markup=food_type)
+        sql = 'DELETE FROM messages WHERE user_id = %s'
+        val = (call.message.chat.id,)
+        cursor.execute(sql, val)
+        db.commit()
+    if call.data == 'among_cates1':
+        sql = 'SELECT message FROM messages WHERE user_id = %s'
+        val = (call.message.chat.id,)
+        cursor.execute(sql, val)
+        messages = cursor.fetchall()
+        sql = 'UPDATE productlist SET process = %s WHERE user_id = %s AND process = %s'
+        val = ('saved', call.message.chat.id, 'editing')
+        cursor.execute(sql, val)
+        db.commit()
+        if messages == []:
+            sql = 'SELECT name FROM categorylist'
+            cursor.execute(sql)
+            category = cursor.fetchall()
+            food_type = types.InlineKeyboardMarkup(2)
             for i in range(len(category)):
                 button = types.InlineKeyboardButton(category[i][0], callback_data='_choose' + str(i))
                 food_type.add(button)
             cancel = types.InlineKeyboardButton('Назад \u2b05', callback_data='backadnu')
             food_type.add(cancel)
-            bot.edit_message_text(text='Выберите категорию:', chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=food_type)
+            bot.edit_message_text('Выберите категорию:', call.message.chat.id, call.message.message_id, reply_markup=food_type)
         else:
-            sql = 'UPDATE productlist SET process = %s WHERE user_id = %s AND process = %s'
-            val = ('saved', call.message.chat.id, 'editing')
-            cursor.execute(sql, val)
-            db.commit()
-            bot.delete_message(call.message.chat.id, call.message.message_id - len(messages))
+            bot.delete_message(call.message.chat.id, messages[0][0] - 1)
             for i in range(len(messages)):
                 bot.delete_message(call.message.chat.id, messages[i][0])
             sql = 'SELECT name FROM categorylist'
             cursor.execute(sql)
             category = cursor.fetchall()
+            food_type = types.InlineKeyboardMarkup(2)
             for i in range(len(category)):
                 button = types.InlineKeyboardButton(category[i][0], callback_data='_choose' + str(i))
                 food_type.add(button)
             cancel = types.InlineKeyboardButton('Назад \u2b05', callback_data='backadnu')
             food_type.add(cancel)
             bot.send_message(text='Выберите категорию:', chat_id=call.message.chat.id, reply_markup=food_type)
+            sql = 'DELETE FROM messages WHERE user_id = %s'
+            val = (call.message.chat.id,)
+            cursor.execute(sql, val)
+            db.commit()
+    if call.data.startswith('stop_edit'):
+        sql = 'SELECT type FROM productlist WHERE product = %s'
+        val = (call.data[9:], )
+        cursor.execute(sql, val)
+        type = cursor.fetchone()
+        sql = 'SELECT product, price, desc_, link, seen, type FROM productlist WHERE type = %s AND process NOT IN (%s)'
+        val = (type[0], 'making')
+        cursor.execute(sql, val)
+        product = cursor.fetchall()
+        bot.edit_message_text(text='Категория - ' + type[0], chat_id=call.message.chat.id,
+                              message_id=call.message.message_id)
+        for i in range(len(product)):
+            food_type = types.InlineKeyboardMarkup(2)
+            button = types.InlineKeyboardButton('Редактировать\ud83d\udd27', callback_data='edit_prod' + str(i))
+            food_type.add(button)
+            sql = 'INSERT INTO messages (user_id, message) VALUES (%s, %s)'
+            val = (call.message.chat.id, call.message.message_id + 1 + i)
+            cursor.execute(sql, val)
+            db.commit()
+            if product[i][0] == call.data[9:]:
+                sql = 'UPDATE calldata SET message = %s WHERE user_id = %s'
+                val = (call.message.message_id + 1 + i, call.message.chat.id)
+                cursor.execute(sql, val)
+                adding_prod = types.InlineKeyboardMarkup(2)
+                preview = types.InlineKeyboardButton('Предпросмотр', callback_data='preview_prod' + product[i][0])
+                edit_name = types.InlineKeyboardButton('Ред. имя', callback_data='eedit_name' + product[i][0])
+                edit_photo = types.InlineKeyboardButton('Ред. фото', callback_data='eedit_photo' + product[i][0])
+                edit_desc = types.InlineKeyboardButton('Ред. описание', callback_data='eedit_desc' + product[i][0])
+                edit_price = types.InlineKeyboardButton('Ред. цену', callback_data='eedit_price' + product[i][0])
+                edit_cate = types.InlineKeyboardButton('Ред. категорию', callback_data='eedit_cate' + product[i][0])
+                show = types.InlineKeyboardButton('Показать\u2705', callback_data='eshow' + product[i][0])
+                hide = types.InlineKeyboardButton('Скрыть\u26d4', callback_data='ehide' + product[i][0])
+                delete = types.InlineKeyboardButton('Удалить продукт\u274c', callback_data='edelete_prod' + product[i][0])
+                adding_prod.add(delete, preview)
+                if product[i][4] == '<b>ДА</b>':
+                    adding_prod.add(edit_name, edit_photo, edit_desc, edit_cate, edit_price, hide)
+                else:
+                    adding_prod.add(edit_name, edit_photo, edit_desc, edit_cate, edit_price, show)
+                if i == len(product) - 1:
+                    cancel = types.InlineKeyboardButton('Назад \u2b05', callback_data='among_cates1')
+                    adding_prod.row(cancel)
+                bot.send_message(chat_id=call.message.chat.id,
+                                      text='<b>Информация о продукте</b>\n\nИмя: ' + product[
+                                          i][0] + '\nОписание: \n' + product[
+                                               i][2] + '\nЦена: ' + str(product[i][1]) + '\nКатегория: ' + product[
+                                               i][5] + '\nВидимость: ' +
+                                           product[i][4] + '\nФото: ' + product[i][3], parse_mode='HTML', reply_markup=adding_prod)
+                continue
+            if i == len(product) - 1:
+                cancel = types.InlineKeyboardButton('Назад \u2b05', callback_data='among_cates1')
+                food_type.add(cancel)
+            if product[i][3] != 'не указано':
+                bot.send_message(
+                    text='<a href="' + product[i][3] + '"> </a>' + product[i][0] + ' - ' + str(
+                        product[i][1]) + 'тг.\n' + product[i][2] + '\nВидно: ' + product[i][4],
+                    chat_id=call.message.chat.id, parse_mode='HTML', reply_markup=food_type)
+            else:
+                bot.send_message(
+                    text=product[i][0] + ' - ' + str(product[i][1]) + 'тг.\n' + product[i][
+                        2] + '\nОТСУТСТВУЕТ ФОТОГРАФИЯ\nВидно: ' + product[i][4],
+                    chat_id=call.message.chat.id, parse_mode='HTML', reply_markup=food_type)
+
+    if call.data.startswith('eedit_photo'):
+        sql = 'UPDATE users SET step = %s WHERE user_id = %s'
+        val = ('eedit_photo', call.message.chat.id)
+        cursor.execute(sql, val)
+        db.commit()
+        sql = 'SELECT product, desc_, price, type, seen, link FROM productlist WHERE process = %s AND user_id = %s'
+        val = ('editing', call.message.chat.id)
+        cursor.execute(sql, val)
+        product = cursor.fetchone()
+        sql = 'SELECT message FROM messages WHERE user_id = %s'
+        val = (call.message.chat.id,)
+        cursor.execute(sql, val)
+        messages = cursor.fetchall()
+        food_type = types.InlineKeyboardMarkup(2)
+        bot.delete_message(call.message.chat.id, messages[0][0] - 1)
+        for i in range(len(messages)):
+            bot.delete_message(call.message.chat.id, messages[i][0])
+        cancel = types.InlineKeyboardButton('Отмена\u274c', callback_data='stop_edit' + product[0])
+        food_type.add(cancel)
+        bot.send_message(text='Вставьте ссылку ведущую к фото к продукту' + product[0] + ':', chat_id=call.message.chat.id,
+                         reply_markup=food_type)
+        sql = 'DELETE FROM messages WHERE user_id = %s'
+        val = (call.message.chat.id,)
+        cursor.execute(sql, val)
+        db.commit()
+    if call.data.startswith('eedit_desc'):
+        sql = 'UPDATE users SET step = %s WHERE user_id = %s'
+        val = ('eedit_desc', call.message.chat.id)
+        cursor.execute(sql, val)
+        db.commit()
+        sql = 'SELECT product, desc_, price, type, seen, link FROM productlist WHERE process = %s AND user_id = %s'
+        val = ('editing', call.message.chat.id)
+        cursor.execute(sql, val)
+        product = cursor.fetchone()
+        sql = 'SELECT message FROM messages WHERE user_id = %s'
+        val = (call.message.chat.id,)
+        cursor.execute(sql, val)
+        messages = cursor.fetchall()
+        food_type = types.InlineKeyboardMarkup(2)
+        bot.delete_message(call.message.chat.id, messages[0][0] - 1)
+        for i in range(len(messages)):
+            bot.delete_message(call.message.chat.id, messages[i][0])
+        cancel = types.InlineKeyboardButton('Отмена\u274c', callback_data='stop_edit' + product[0])
+        food_type.add(cancel)
+        bot.send_message(text='Введите новое описание к продукту ' + product[0] + ':', chat_id=call.message.chat.id,
+                         reply_markup=food_type)
         sql = 'DELETE FROM messages WHERE user_id = %s'
         val = (call.message.chat.id,)
         cursor.execute(sql, val)
         db.commit()
 
+    if call.data.startswith('eedit_price'):
+        sql = 'UPDATE users SET step = %s WHERE user_id = %s'
+        val = ('eedit_price', call.message.chat.id)
+        cursor.execute(sql, val)
+        db.commit()
+        sql = 'SELECT product, desc_, price, type, seen, link FROM productlist WHERE process = %s AND user_id = %s'
+        val = ('editing', call.message.chat.id)
+        cursor.execute(sql, val)
+        product = cursor.fetchone()
+        sql = 'SELECT message FROM messages WHERE user_id = %s'
+        val = (call.message.chat.id,)
+        cursor.execute(sql, val)
+        messages = cursor.fetchall()
+        food_type = types.InlineKeyboardMarkup(2)
+        bot.delete_message(call.message.chat.id, messages[0][0] - 1)
+        for i in range(len(messages)):
+            bot.delete_message(call.message.chat.id, messages[i][0])
+        cancel = types.InlineKeyboardButton('Отмена\u274c', callback_data='stop_edit' + product[0])
+        food_type.add(cancel)
+        bot.send_message(text='Введите новую цену к продукту ' + product[0] + ':', chat_id=call.message.chat.id,
+                         reply_markup=food_type)
+        sql = 'DELETE FROM messages WHERE user_id = %s'
+        val = (call.message.chat.id,)
+        cursor.execute(sql, val)
+        db.commit()
+    if call.data.startswith('eedit_cate'):
+        sql = 'SELECT product, desc_, price, type, seen, link FROM productlist WHERE process = %s AND user_id = %s'
+        val = ('editing', call.message.chat.id)
+        cursor.execute(sql, val)
+        product = cursor.fetchone()
+        sql = 'SELECT message FROM messages WHERE user_id = %s'
+        val = (call.message.chat.id,)
+        cursor.execute(sql, val)
+        messages = cursor.fetchall()
+        food_type = types.InlineKeyboardMarkup(2)
+        bot.delete_message(call.message.chat.id, messages[0][0] - 1)
+        for i in range(len(messages)):
+            bot.delete_message(call.message.chat.id, messages[i][0])
+        food_type = types.InlineKeyboardMarkup(2)
+        sql = 'SELECT name FROM categorylist'
+        cursor.execute(sql)
+        category = cursor.fetchall()
+        for i in range(len(category)):
+            button = types.InlineKeyboardButton(category[i][0], callback_data='cate_edit' + str(i))
+            food_type.add(button)
+        cancel = types.InlineKeyboardButton('Отмена\u274c', callback_data='stop_edit' + product[0])
+        food_type.add(cancel)
+        bot.send_message(text='Выберите категорию в которой будет находиться продукт',
+                              chat_id=call.message.chat.id, reply_markup=food_type)
+        sql = 'DELETE FROM messages WHERE user_id = %s'
+        val = (call.message.chat.id,)
+        cursor.execute(sql, val)
+        db.commit()
+    if call.data.startswith('cate_edit'):
+        sql = 'SELECT name FROM categorylist'
+        cursor.execute(sql)
+        category = cursor.fetchall()
+        sql = 'UPDATE calldata SET calldata2 = %s WHERE user_id = %s'
+        val = (int(call.data[9:]), call.message.chat.id)
+        cursor.execute(sql, val)
+        db.commit()
+        bot.edit_message_text('Категория - ' + category[int(call.data[9:])][0], call.message.chat.id, call.message.message_id)
+        sql = 'UPDATE productlist SET type = %s WHERE user_id = %s AND process = %s'
+        val = (category[int(call.data[9:])][0], call.message.chat.id, 'editing')
+        cursor.execute(sql, val)
+        db.commit()
+        sql = 'SELECT product, price, desc_, type, seen, link FROM productlist WHERE user_id = %s AND process = %s'
+        val = (call.message.chat.id, 'editing')
+        cursor.execute(sql, val)
+        productt = cursor.fetchone()
+        sql = 'SELECT product, price, desc_, link, seen, type FROM productlist WHERE type = %s AND process NOT IN (%s)'
+        val = (productt[3], 'making')
+        cursor.execute(sql, val)
+        product = cursor.fetchall()
+        for i in range(len(product)):
+            food_type = types.InlineKeyboardMarkup(2)
+            button = types.InlineKeyboardButton('Редактировать\ud83d\udd27', callback_data='edit_prod' + str(i))
+            food_type.add(button)
+            sql = 'INSERT INTO messages (user_id, message) VALUES (%s, %s)'
+            val = (call.message.chat.id, call.message.message_id + 1 + i)
+            cursor.execute(sql, val)
+            db.commit()
+            if product[i][0] == productt[0]:
+                sql = 'UPDATE calldata SET message = %s WHERE user_id = %s'
+                val = (call.message.message_id + 1 + i, call.message.chat.id)
+                cursor.execute(sql, val)
+                db.commit()
+                adding_prod = types.InlineKeyboardMarkup(2)
+                preview = types.InlineKeyboardButton('Предпросмотр', callback_data='preview_prod' + product[i][0])
+                edit_name = types.InlineKeyboardButton('Ред. имя', callback_data='eedit_name' + product[i][0])
+                edit_photo = types.InlineKeyboardButton('Ред. фото', callback_data='eedit_photo' + product[i][0])
+                edit_desc = types.InlineKeyboardButton('Ред. описание', callback_data='eedit_desc' + product[i][0])
+                edit_price = types.InlineKeyboardButton('Ред. цену', callback_data='eedit_price' + product[i][0])
+                edit_cate = types.InlineKeyboardButton('Ред. категорию', callback_data='eedit_cate' + product[i][0])
+                show = types.InlineKeyboardButton('Показать\u2705', callback_data='eshow' + product[i][0])
+                hide = types.InlineKeyboardButton('Скрыть\u26d4', callback_data='ehide' + product[i][0])
+                delete = types.InlineKeyboardButton('Удалить продукт\u274c',
+                                                    callback_data='edelete_prod' + product[i][0])
+                adding_prod.add(delete, preview)
+                if product[i][4] == '<b>ДА</b>':
+                    adding_prod.add(edit_name, edit_photo, edit_desc, edit_cate, edit_price, hide)
+                else:
+                    adding_prod.add(edit_name, edit_photo, edit_desc, edit_cate, edit_price, show)
+                if i == len(product) - 1:
+                    cancel = types.InlineKeyboardButton('Назад \u2b05', callback_data='among_cates1')
+                    adding_prod.row(cancel)
+                bot.send_message(chat_id=call.message.chat.id,
+                                 text='Категория продукта отредактирована!\n<b>Информация о продукте</b>\n\nИмя: ' +
+                                      product[
+                                          i][0] + '\nОписание: \n' + product[
+                                          i][2] + '\nЦена: ' + str(product[i][1]) + '\nКатегория: ' + product[
+                                          i][5] + '\nВидимость: ' +
+                                      product[i][4] + '\nФото: ' + product[i][3], parse_mode='HTML',
+                                 reply_markup=adding_prod)
+                continue
+            if i == len(product) - 1:
+                cancel = types.InlineKeyboardButton('Назад \u2b05', callback_data='among_cates1')
+                food_type.add(cancel)
+            if product[i][3] != 'не указано':
+                bot.send_message(
+                    text='<a href="' + product[i][3] + '"> </a>' + product[i][0] + ' - ' + str(
+                        product[i][1]) + 'тг.\n' + product[i][2] + '\nВидно: ' + product[i][4],
+                    chat_id=call.message.chat.id, parse_mode='HTML', reply_markup=food_type)
+            else:
+                bot.send_message(
+                    text=product[i][0] + ' - ' + str(product[i][1]) + 'тг.\n' + product[i][
+                        2] + '\nОТСУТСТВУЕТ ФОТОГРАФИЯ\nВидно: ' + product[i][4],
+                    chat_id=call.message.chat.id, parse_mode='HTML', reply_markup=food_type)
+    if call.data.startswith('eshow'):
+        sql = 'UPDATE productlist SET seen = %s WHERE user_id = %s AND process = %s'
+        val = (call.message.chat.id, 'editing')
+        cursor.execute(sql, val)
+        db.commit()
+        sql = 'SELECT product, price, desc_, seen, type, link FROM productlist WHERE user_id = %s AND process = %s'
+        val = (call.message.chat.id, 'editing')
+        cursor.execute(sql, val)
+        product = cursor.fetchone()
+        sql = 'SELECT message FROM message WHERE user_id = %s'
+        val = (call.message.chat.id, )
+        cursor.execute(sql, val)
+        messages = cursor.fetchall()
+        adding_prod = types.InlineKeyboardMarkup(2)
+        preview = types.InlineKeyboardButton('Предпросмотр', callback_data='preview_prod' + product[0])
+        edit_name = types.InlineKeyboardButton('Ред. имя', callback_data='eedit_name' + product[0])
+        edit_photo = types.InlineKeyboardButton('Ред. фото', callback_data='eedit_photo' + product[0])
+        edit_desc = types.InlineKeyboardButton('Ред. описание', callback_data='eedit_desc' + product[0])
+        edit_price = types.InlineKeyboardButton('Ред. цену', callback_data='eedit_price' + product[0])
+        edit_cate = types.InlineKeyboardButton('Ред. категорию', callback_data='eedit_cate' + product[0])
+        show = types.InlineKeyboardButton('Показать\u2705', callback_data='eshow' + product[0])
+        hide = types.InlineKeyboardButton('Скрыть\u26d4', callback_data='ehide' + product[0])
+        delete = types.InlineKeyboardButton('Удалить продукт\u274c',
+                                            callback_data='edelete_prod' + product[0])
+        adding_prod.add(delete, preview)
+        if product[3] == '<b>ДА</b>':
+            adding_prod.add(edit_name, edit_photo, edit_desc, edit_cate, edit_price, hide)
+        else:
+            adding_prod.add(edit_name, edit_photo, edit_desc, edit_cate, edit_price, show)
+        if i == len(product) - 1:
+            cancel = types.InlineKeyboardButton('Назад \u2b05', callback_data='among_cates1')
+            adding_prod.row(cancel)
+        bot.send_message(chat_id=call.message.chat.id,
+                         text='Категория продукта отредактирована!\n<b>Информация о продукте</b>\n\nИмя: ' +
+                              product[
+                                  i][0] + '\nОписание: \n' + product[
+                                  i][3] + '\nЦена: ' + str(product[i][1]) + '\nКатегория: ' + product[
+                                  i][4] + '\nВидимость: ' +
+                              product[i][3] + '\nФото: ' + product[i][5], parse_mode='HTML',
+                         reply_markup=adding_prod)
 
 while True:
     try:
@@ -2904,5 +3527,4 @@ while True:
 
     except Exception as e:
         logging.error(e)
-        db.reconnect(5, 1)
         time.sleep(5)
